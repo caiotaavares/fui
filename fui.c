@@ -4,17 +4,18 @@
 typedef struct Node {
     char character;
     struct Node* next;
+    struct Node* down;
 } Node;
 
 typedef struct Queue {
     Node* front;
-    Node* rear;
+    struct Queue* down;
 } Queue;
 
 Queue* createQueue() {
     Queue* queue = (Queue*)malloc(sizeof(Queue));
     queue->front = NULL;
-    queue->rear = NULL;
+    queue->down = NULL;
     return queue;
 }
 
@@ -22,13 +23,16 @@ void enqueue(Queue* queue, char character) {
     Node* newNode = (Node*)malloc(sizeof(Node));
     newNode->character = character;
     newNode->next = NULL;
+    newNode->down = NULL;
 
-    if (queue->rear == NULL) {
+    if (queue->front == NULL) {
         queue->front = newNode;
-        queue->rear = newNode;
     } else {
-        queue->rear->next = newNode;
-        queue->rear = newNode;
+        Node* currentNode = queue->front;
+        while (currentNode->next != NULL) {
+            currentNode = currentNode->next;
+        }
+        currentNode->next = newNode;
     }
 }
 
@@ -39,12 +43,74 @@ void dequeue(Queue* queue) {
 
     Node* temp = queue->front;
     queue->front = queue->front->next;
+    free(temp);
+}
 
-    if (queue->front == NULL) {
-        queue->rear = NULL;
+void insertChar(Queue* queue, int line, int position, char character) {
+    Queue* currentQueue = queue;
+    int i;
+    for (i = 0; i < line && currentQueue != NULL; i++) {
+        currentQueue = currentQueue->down;
     }
 
-    free(temp);
+    if (currentQueue == NULL) {
+        return;
+    }
+
+    Node* currentNode = currentQueue->front;
+    Node* prevNode = NULL;
+
+    int j = 0;
+    while (j < position && currentNode != NULL) {
+        prevNode = currentNode;
+        currentNode = currentNode->next;
+        j++;
+    }
+
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    newNode->character = character;
+    newNode->next = currentNode;
+
+    if (prevNode == NULL) {
+        currentQueue->front = newNode;
+    } else {
+        prevNode->next = newNode;
+    }
+}
+
+void insertLine(Queue* queue, int position) {
+    if (position < 0) {
+        return;
+    }
+
+    Queue* currentQueue = queue;
+    int i;
+    for (i = 0; i < position; i++) {
+        if (currentQueue->down == NULL) {
+            Queue* newQueue = createQueue();
+            currentQueue->down = newQueue;
+        }
+        currentQueue = currentQueue->down;
+    }
+}
+
+void printQueue(Queue* queue) {
+    Queue* currentQueue = queue;
+    int i = 0;
+
+    while (currentQueue != NULL) {
+        Node* currentNode = currentQueue->front;
+        int j = 0;
+
+        while (currentNode != NULL) {
+            mvprintw(i, j, "%c", currentNode->character);
+            currentNode = currentNode->next;
+            j++;
+        }
+
+        currentQueue = currentQueue->down;
+        i++;
+    }
 }
 
 int main() {
@@ -84,7 +150,7 @@ int main() {
                 }
                 break;
             case '\n':
-                enqueue(queue, '\n');
+                insertLine(queue, cursorY + 1);
                 cursorX = 0;
                 cursorY++;
                 break;
@@ -103,17 +169,11 @@ int main() {
                     if (currentNode != NULL) {
                         if (prevNode != NULL) {
                             prevNode->next = currentNode->next;
-                            if (queue->rear == currentNode) {
-                                queue->rear = prevNode;
-                            }
                             free(currentNode);
                         } else {
                             Node* temp = queue->front;
                             queue->front = queue->front->next;
                             free(temp);
-                            if (queue->front == NULL) {
-                                queue->rear = NULL;
-                            }
                         }
                         if (cursorX > 0) {
                             cursorX--;
@@ -125,22 +185,15 @@ int main() {
                 }
                 break;
             default:
-                if (ch >= 0 && ch <= 127 && ch != 27) { // Exclude special characters
-                    enqueue(queue, ch);
+                if (ch >= 0 && ch <= 127 && ch != 27) {
+                    insertChar(queue, cursorY, cursorX, ch);
                     cursorX++;
                 }
                 break;
         }
 
         clear();
-        Node* currentNode = queue->front;
-        int i, j;
-        for (i = 0; i < LINES - 1 && currentNode != NULL; i++) {
-            for (j = 0; j < COLS - 1 && currentNode != NULL; j++) {
-                mvprintw(i, j, "%c", currentNode->character);
-                currentNode = currentNode->next;
-            }
-        }
+        printQueue(queue);
 
         move(cursorY, cursorX);
         refresh();
@@ -153,7 +206,12 @@ int main() {
         free(temp);
     }
 
-    free(queue);
+    Queue* currentQueue = queue;
+    while (currentQueue != NULL) {
+        Queue* temp = currentQueue;
+        currentQueue = currentQueue->down;
+        free(temp);
+    }
 
     endwin();
 
