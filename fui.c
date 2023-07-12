@@ -171,6 +171,45 @@ void printQueue(Queue* queue) {
     }
 }
 
+/**
+ * Procura palavras
+*/
+int searchWordInQueue(Queue* queue, const char* word) {
+    Queue* currentQueue = queue;
+    int line = 0;
+
+    while (currentQueue != NULL) {
+        Node* currentNode = currentQueue->front;
+        int position = 0;
+
+        while (currentNode != NULL) {
+            if (currentNode->character == word[0]) {
+                Node* tempNode = currentNode;
+                int index = 0;
+
+                while (tempNode != NULL && tempNode->character == word[index]) {
+                    tempNode = tempNode->next;
+                    index++;
+
+                    if (word[index] == '\0') {
+                        // Palavra encontrada
+                        return line;
+                    }
+                }
+            }
+
+            currentNode = currentNode->next;
+            position++;
+        }
+
+        currentQueue = currentQueue->down;
+        line++;
+    }
+
+    // Palavra não encontrada
+    return -1;
+}
+
 int main() {
     /* Funções do ncurses */
     initscr();
@@ -182,30 +221,32 @@ int main() {
 
     int cursorX = 0, cursorY = 0;
 
+    char searchWord[100];
+    char fileName[100];
     int ch;
-    while ((ch = getch()) != KEY_F(1)) {
+    while ((ch = getch()) /*!= KEY_F(1)*/) {
         switch (ch) {
             /* As setas alteram o valor da posição do cursor no eixo cartesiano */
             case KEY_LEFT:
-            case 75:
+            // case 75:
                 if (cursorX > 0) {
                     cursorX--;
                 }
                 break;
             case KEY_RIGHT:
-            case 77:
+            // case 77:
                 if (cursorX < (COLS - 1)) {
                     cursorX++;
                 }
                 break;
             case KEY_UP:
-            case 72:
+            // case 72:
                 if (cursorY > 0) {
                     cursorY--;
                 }
                 break;
             case KEY_DOWN:
-            case 80:
+            // case 80:
                 if (cursorY < (LINES - 1)) {
                     cursorY++;
                 }
@@ -241,6 +282,80 @@ int main() {
                     }
                 }
                 break;
+            /**
+             * Essa função percorre a fila e verifica se cada caractere coincide com o 
+             * primeiro caractere da palavra buscada. Se houver correspondência, ela continua 
+             * verificando os caracteres subsequentes até encontrar a palavra completa. 
+             * e a palavra for encontrada, a função retorna o número da linha onde a palavra 
+             * foi encontrada. Caso contrário, retorna -1.
+            */
+            case KEY_F(2):
+                clear();
+                // mvprintw(LINES - 1, 0, "F1: Sair   F2: Buscar");
+                mvprintw(LINES - 1, 20, "Buscar palavra: ");
+                echo();
+                getstr(searchWord);
+                clear();
+                noecho();
+                int lineFound = searchWordInQueue(queue, searchWord);
+                if (lineFound != -1) {
+                    mvprintw(LINES - 1, 0, "Palavra encontrada na linha: %d", lineFound);
+                } else {
+                    mvprintw(LINES - 1, 0, "Palavra não encontrada");
+                }
+                // Aguarda uma tecla ser pressionada antes de limpar a mensagem
+                getch(); 
+                break;
+
+            /**
+             * 
+            */
+            case KEY_F(1):
+                clear();
+                // mvprintw(LINES - 1, 0, "F1: Sair   F2: Buscar");
+                mvprintw(LINES - 1, 20, "Salvar o arquivo? (s/n): ");
+                echo();
+                char saveOption;
+                scanw(" %c", &saveOption);
+                noecho();
+                if (saveOption == 's' || saveOption == 'S') {
+                    clear();
+                    mvprintw(LINES - 1, 20, "Nome do arquivo: ");
+                    echo();
+                    getstr(fileName);
+                    noecho();
+                    
+                     // Abre o arquivo para escrita
+                    FILE* file = fopen(fileName, "w");
+                    if (file == NULL) {
+                        clear();
+                        mvprintw(LINES - 1, 0, "Erro ao abrir o arquivo para salvar.");
+                    } else {
+                        // Percorre a fila e escreve cada caractere no arquivo
+                        Queue* currentQueue = queue;
+                        while (currentQueue != NULL) {
+                            Node* currentNode = currentQueue->front;
+                            while (currentNode != NULL) {
+                                fputc(currentNode->character, file);
+                                currentNode = currentNode->next;
+                            }
+                            currentQueue = currentQueue->down;
+                            if (currentQueue != NULL) {
+                                fputc('\n', file);
+                            }
+                        }
+
+                        fclose(file);
+                        mvprintw(LINES - 1, 0, "Arquivo salvo com sucesso.");
+                    }
+                } else {
+                    mvprintw(LINES - 1, 0, "Arquivo não salvo.");
+                }
+                getch(); // Aguarda uma tecla ser pressionada antes de sair
+                ch = KEY_F(1); // Altera o valor de ch para sair do loop while
+                break;
+
+
             /* Caso o botão não seja um botão e funçção, seu valor é inserido na queue */
             default:
                 if (ch >= 0 && ch <= 127 && ch != 27) {
@@ -253,7 +368,7 @@ int main() {
         /* Atualiza a queue na tela */
         clear();
         printQueue(queue);
-
+        mvprintw(LINES - 1, 0, "F1: Sair   F2: Buscar");
         move(cursorY, cursorX);
         refresh();
     }
@@ -268,6 +383,7 @@ int main() {
         currentNode = currentNode->next;
         free(temp);
     }
+    
     Queue* currentQueue = queue;
     while (currentQueue != NULL) {
         Queue* temp = currentQueue;
